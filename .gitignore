@@ -1,0 +1,6 @@
+node_modules/
+.next/
+out/
+.env*.local
+*.muse-github-snapshot-sync.json
+*.muse-github-snapshot-sync.json.tmp-*
