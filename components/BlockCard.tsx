@@ -3,12 +3,14 @@
 import React, { useState } from "react";
 import { BlockFeature } from "../lib/audioAnalysis";
 
-// Keyframes are generated client-side via the free Pollinations image
-// endpoint (no key needed). This build is fully static (GitHub Pages), so
-// there is no /api proxy — the browser calls Pollinations directly.
-function pollinationsUrl(prompt: string, seed: number | string) {
+// Keyframe generation uses the free Pollinations image endpoint directly
+// (no key needed) — the same approach as the standalone image generator:
+// a fresh random seed per generation, loaded straight into <img>
+// (no fetch, so no CORS issues at all).
+function pollinationsUrl(prompt: string) {
+  const seed = Math.floor(Math.random() * 1000000);
   return (
-    `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}` +
+    `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
     `?model=flux&width=1024&height=1024&nologo=true&seed=${seed}`
   );
 }
@@ -28,20 +30,29 @@ export default function BlockCard({
 }) {
   const [loading, setLoading] = useState(false);
 
-  async function generateImage() {
+  function generateImage() {
+    // Fresh random seed each time, so Regenerate gives a new image.
     setLoading(true);
-    const url = pollinationsUrl(block.imagePrompt || "", block.index);
+    onUpdate({ ...block, imageUrl: pollinationsUrl(block.imagePrompt || "") });
+  }
+
+  async function downloadImage() {
+    if (!block.imageUrl) return;
     try {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`Generation failed (${resp.status})`);
+      const resp = await fetch(block.imageUrl);
+      if (!resp.ok) throw new Error("download failed");
       const blob = await resp.blob();
-      onUpdate({ ...block, imageUrl: URL.createObjectURL(blob) });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `block-${index}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch {
-      // A direct fetch can be blocked on some networks — fall back to
-      // hotlinking the Pollinations URL (<img> tags don't need CORS).
-      onUpdate({ ...block, imageUrl: url });
-    } finally {
-      setLoading(false);
+      // cross-origin fetch blocked — just open the image in a new tab
+      window.open(block.imageUrl, "_blank");
     }
   }
 
@@ -112,9 +123,9 @@ export default function BlockCard({
               Auto-generate
             </button>
             {block.imageUrl && (
-              <a className="bg-green-600 px-3 py-1 rounded" href={block.imageUrl} download={`block-${index}.png`}>
+              <button className="bg-green-600 px-3 py-1 rounded" onClick={downloadImage}>
                 Download
-              </a>
+              </button>
             )}
           </div>
         </div>
@@ -143,7 +154,13 @@ export default function BlockCard({
         </div>
 
         {block.imageUrl && (
-          <img src={block.imageUrl} className="w-64 h-64 object-cover rounded mt-2" alt="generated keyframe" />
+          <img
+            src={block.imageUrl}
+            onLoad={() => setLoading(false)}
+            onError={() => setLoading(false)}
+            className="w-64 h-64 object-cover rounded mt-2"
+            alt="generated keyframe"
+          />
         )}
       </div>
     </div>
