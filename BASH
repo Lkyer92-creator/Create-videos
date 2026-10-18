@@ -1,0 +1,5 @@
+# Add your GitHub repository as the remote
+git remote add origin https://github.com/<YOUR-GITHUB-USERNAME>/music-video-prompt-studio.git
+
+# Push to your GitHub repository
+git push -u origin main
